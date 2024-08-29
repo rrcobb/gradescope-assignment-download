@@ -77,13 +77,13 @@ def format_text(pdf, text, font, downloaded_images):
     for part in parts:
         if part.startswith("```") and part.endswith("```"):
             # Code block
-            pdf.set_font("Latin Modern Mono", "", 10)
+            pdf.set_font("Latin Modern Mono", "", 12)
             code = part.strip("`").strip()
             pdf.multi_cell(0, text=code)
             pdf.set_font(*font)
         elif part.startswith("`") and part.endswith("`"):
             # Inline code
-            pdf.set_font("Latin Modern Mono", "", 10)
+            pdf.set_font("Latin Modern Mono", "", 12)
             code = part.strip("`")
             pdf.write(text=code)
             pdf.set_font(*font)
@@ -138,14 +138,28 @@ def write_markup_to_pdf(data, filename):
 
     # Set font for the questions
     question_font = ("CMU Serif", "B", 14)
+    jr_question_font = ("CMU Serif", "B", 12)
     text_font = ("Latin Modern Roman", "", 12)
     choice_font = ("Latin Modern Roman", "", 12)
 
-    for i, (question_id, question_data) in enumerate(
-        data["questions"].items(), start=1
-    ):
-        pdf.set_font(*question_font)
-        pdf.cell(0, 10, f"Q{i}. {question_data['title']}", 0, 1)
+    roots, tree = build_question_tree(data["questions"])
+    sorted_questions = flatten_question_tree(roots, tree)
+
+    for i, (question_id, question_data) in enumerate(sorted_questions, start=1):
+        parent_id = question_data["parent_id"]
+        parent_index = None
+        if parent_id:
+            parent_index = data["questions"][str(parent_id)]["index"]
+        q_number = ".".join(
+            [str(i) for i in [parent_index, question_data["index"]] if i]
+        )
+
+        if parent_index:
+            pdf.set_font(*jr_question_font)
+        else:
+            pdf.set_font(*question_font)
+
+        pdf.cell(0, 10, f"Q{q_number}. {question_data['title']}", 0, 1)
         pdf.ln(2)
 
         for content in question_data["content"]:
@@ -159,13 +173,48 @@ def write_markup_to_pdf(data, filename):
                     pdf.ln(8)
 
         # Add more space before the next question
-        pdf.ln(8)
+        pdf.ln(12)
 
     pdf.output(filename)
 
     # Clean up downloaded images
     for image_file in downloaded_images.values():
         os.remove(image_file)
+
+
+def build_question_tree(questions):
+    tree = {}
+    roots = []
+    for qid, qdata in questions.items():
+        parent_id = qdata.get("parent_id")
+        if parent_id is None:
+            roots.append((qid, qdata))
+        else:
+            if str(parent_id) not in tree:
+                tree[str(parent_id)] = []
+            tree[str(parent_id)].append((qid, qdata))
+
+    # Sort roots and children by index
+    roots.sort(key=lambda x: x[1].get("index", 0))
+    for parent in tree:
+        tree[parent].sort(key=lambda x: x[1].get("index", 0))
+
+    return roots, tree
+
+
+def flatten_question_tree(roots, tree):
+    flattened = []
+
+    def dfs(qid, qdata):
+        flattened.append((qid, qdata))
+        if qid in tree:
+            for child_id, child_data in tree[str(qid)]:
+                dfs(child_id, child_data)
+
+    for qid, qdata in roots:
+        dfs(qid, qdata)
+
+    return flattened
 
 
 def save_assignment(assignment=None, course_id=None, assignment_id=None):
@@ -193,6 +242,7 @@ def save_assignment(assignment=None, course_id=None, assignment_id=None):
             if data.get("questions"):
                 # question data exists
                 # turn them into a pdf
+                print(f"generating {target_loc}")
                 write_markup_to_pdf(data, filename=target_loc)
             else:
                 print("not sure how to handle assignment type", data)
