@@ -12,6 +12,7 @@ dependencies = [
     "confuse>=2.0.1",
     "bs4>=0.0.2",
     "enum34>=1.1.10",
+    "fpdf2>=2.7.9",
 ]
 
 [build-system]

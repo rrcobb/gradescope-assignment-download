@@ -1,5 +1,6 @@
 import collections as _collections
 import csv as _csv
+import json
 import os as _os
 import tempfile as _tempfile
 
@@ -225,14 +226,22 @@ def get_assignment_submissions(course_id, assignment_id, **kwargs):
     return submissions
 
 
-def download_submission_pdf(course_id, assignment_id, submission_id):
-    assert submission_id is not None
-    assert course_id is not None
-    assert assignment_id is not None
-    result = gradescope.api.request(
-        endpoint=f"courses/{course_id}/assignments/{assignment_id}/submissions/{submission_id}.pdf"
-    )
-    return result.content
+def get_image(path):
+    result = gradescope.api.request(endpoint=path)
+    return result
+
+
+def get_data_from_assignment(course_id, assignment_id):
+    outline_url = f"https://www.gradescope.com/courses/{course_id}/assignments/{assignment_id}/outline/edit"
+    result = gradescope.api.request(endpoint=outline_url)
+    soup = _bs4.BeautifulSoup(result.content.decode(), features="html.parser")
+
+    editor = soup.select_one("#main-content div")
+    title = soup.select_one("h2.sidebar--title").get("title")
+    attr = editor.get("data-react-props")
+    react_props = json.loads(attr)
+    data = {"title": title}
+    return data | react_props
 
 
 def get_assignment_template_href(course_id, assignment_id):
