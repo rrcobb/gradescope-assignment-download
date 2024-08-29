@@ -2,10 +2,9 @@
 import json
 import os
 import re
-from urllib.parse import urljoin
 
 import requests
-from fpdf import FPDF
+from fpdf import FPDF  # this is fpdf2
 
 from gradescope.macros import (
     get_assignment_template_href,
@@ -14,14 +13,6 @@ from gradescope.macros import (
     get_data_from_assignment,
     get_image,
 )
-
-TARGET_DIR = "target"
-
-
-# so that if we remove these we don't lose the imports to the formatter
-def _ignored():
-    get_assignments
-    get_courses
 
 
 def groupby(iterable, keyfn):
@@ -210,23 +201,49 @@ def save_assignment(assignment=None, course_id=None, assignment_id=None):
         print(f"already downloaded {target_loc}, skipping")
 
 
-def save_assignments():
-    # courses = get_courses()
+def fetch_courses():
+    """Get all your courses info and write it to a json file"""
+    courses = get_courses()
     filename = TARGET_DIR + "/courses.json"
-    # write_json(content=courses, filename=filename)
-    # courses = read_json(filename=filename)
-    # assignments = get_assignments([course["id"] for course in courses])
+    write_json(content=courses, filename=filename)
+
+
+def fetch_assignments():
+    """Get all the assignments from all your courses, write to json"""
+    # read in the courses
+    courses_file = TARGET_DIR + "/courses.json"
+    courses = read_json(filename=courses_file)
+
+    # get the assignments, save to json
+    assignments = get_assignments([course["id"] for course in courses])
     filename = TARGET_DIR + "/assignments.json"
-    # write_json(content=assignments, filename=filename)
+    write_json(content=assignments, filename=filename)
+
+
+def save_assignments():
+    """save all your assignments as pdfs"""
+    # read in the assignments
+    filename = TARGET_DIR + "/assignments.json"
     assignments = read_json(filename=filename)
+
+    # save the assignments as pdfs
     for assignment in assignments:
         save_assignment(assignment)
 
 
+TARGET_DIR = "target"
+
+
 def main():
-    # https://www.gradescope.com/courses/561134/assignments/4315589/outline/edit
-    # save_assignment(course_id=561134, assignment_id=4315589)
-    save_assignments()
+    print("Add your info in config.yaml and then edit main() at the bottom of main.py")
+    # 1. Get all your courses
+    # fetch_courses()
+
+    # 2. Get all the assignments info
+    # fetch_assignments()
+
+    # 3. Save all your assignments
+    # save_assignments()
 
 
 if __name__ == "__main__":
